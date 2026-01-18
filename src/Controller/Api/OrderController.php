@@ -4,7 +4,9 @@ namespace App\Controller\Api;
 
 use App\Entity\Order;
 use App\Entity\OrderItem;
+use App\Repository\OrderRepository;
 use App\Repository\ProductRepository;
+use App\Security\TokenAuthenticator;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -17,19 +19,24 @@ class OrderController extends AbstractController
     #[Route('', name: 'api_create_order', methods: ['POST'])]
     public function create(
         Request $request,
+        TokenAuthenticator $auth,
         EntityManagerInterface $em,
         ProductRepository $productRepository
     ): JsonResponse {
-        $data = json_decode($request->getContent(), true);
+        // 🔐 Authenticate
+        $phone = $auth->getPhoneFromRequest($request);
+        if (!$phone) {
+            return $auth->unauthorized();
+        }
 
+        $data = json_decode($request->getContent(), true);
         if (!$data) {
             return $this->json(['message' => 'Invalid JSON'], 400);
         }
 
-        // Basic validation
+        // ✅ Validate required fields (NO phone here)
         if (
             empty($data['customerName']) ||
-            empty($data['phone']) ||
             empty($data['address']) ||
             empty($data['items'])
         ) {
@@ -38,7 +45,7 @@ class OrderController extends AbstractController
 
         $order = new Order();
         $order->setCustomerName($data['customerName']);
-        $order->setPhone($data['phone']);
+        $order->setPhone($phone); // ✅ FROM TOKEN
         $order->setAddress($data['address']);
 
         $totalAmount = 0;
@@ -52,7 +59,6 @@ class OrderController extends AbstractController
             }
 
             $product = $productRepository->find($itemData['productId']);
-
             if (!$product) {
                 return $this->json(['message' => 'Product not found'], 404);
             }
@@ -69,6 +75,7 @@ class OrderController extends AbstractController
             $orderItem->setParentOrder($order);
 
             $order->addItem($orderItem);
+            $em->persist($orderItem);
 
             $totalAmount += $product->getPrice() * $quantity;
         }
@@ -83,5 +90,45 @@ class OrderController extends AbstractController
             'orderId' => $order->getId(),
             'totalAmount' => $totalAmount,
         ], 201);
+    }
+
+    #[Route('', name: 'api_get_orders', methods: ['GET'])]
+    public function index(
+        Request $request,
+        TokenAuthenticator $auth,
+        OrderRepository $orderRepository
+    ): JsonResponse {
+        $phone = $auth->getPhoneFromRequest($request);
+        if (!$phone) {
+            return $auth->unauthorized();
+        }
+
+        $orders = $orderRepository->findBy(
+            ['phone' => $phone],
+            ['id' => 'DESC']
+        );
+
+        $response = [];
+
+        foreach ($orders as $order) {
+            $items = [];
+
+            foreach ($order->getItems() as $item) {
+                $items[] = [
+                    'product' => $item->getProduct()->getName(),
+                    'quantity' => $item->getQuantity(),
+                    'price' => $item->getPrice(),
+                ];
+            }
+
+            $response[] = [
+                'id' => $order->getId(),
+                'totalAmount' => $order->getTotalAmount(),
+                'createdAt' => $order->getCreatedAt()?->format('Y-m-d H:i'),
+                'items' => $items,
+            ];
+        }
+
+        return $this->json($response);
     }
 }

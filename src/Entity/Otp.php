@@ -14,16 +14,16 @@ class Otp
     private ?int $id = null;
 
     #[ORM\Column(length: 15)]
-    private ?string $phone = null;
+    private string $phone;
 
     #[ORM\Column(length: 6)]
-    private ?string $code = null;
+    private string $code;
 
     #[ORM\Column]
-    private ?\DateTimeImmutable $expiresAt = null;
+    private \DateTimeImmutable $expiresAt;
 
     #[ORM\Column]
-    private ?bool $isUsed = null;
+    private bool $isUsed = false;
 
     public function __construct(string $phone, string $code)
     {
@@ -32,56 +32,23 @@ class Otp
         $this->expiresAt = new \DateTimeImmutable('+5 minutes');
     }
 
-    public function getId(): ?int
+    public function isExpired(): bool
     {
-        return $this->id;
+        return $this->expiresAt < new \DateTimeImmutable();
     }
 
-    public function getPhone(): ?string
+    public function markUsed(): void
+    {
+        $this->isUsed = true;
+    }
+
+    public function getPhone(): string
     {
         return $this->phone;
     }
 
-    public function setPhone(string $phone): static
-    {
-        $this->phone = $phone;
-
-        return $this;
-    }
-
-    public function getCode(): ?string
+    public function getCode(): string
     {
         return $this->code;
-    }
-
-    public function setCode(string $code): static
-    {
-        $this->code = $code;
-
-        return $this;
-    }
-
-    public function getExpiresAt(): ?\DateTimeImmutable
-    {
-        return $this->expiresAt;
-    }
-
-    public function setExpiresAt(\DateTimeImmutable $expiresAt): static
-    {
-        $this->expiresAt = $expiresAt;
-
-        return $this;
-    }
-
-    public function isUsed(): ?bool
-    {
-        return $this->isUsed;
-    }
-
-    public function setIsUsed(bool $isUsed): static
-    {
-        $this->isUsed = $isUsed;
-
-        return $this;
     }
 }
