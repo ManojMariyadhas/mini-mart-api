@@ -37,13 +37,60 @@ class AdminProductController extends AbstractController
     public function index(
         Request $request,
         TokenAuthenticator $auth,
-        ProductRepository $repo
+        ProductRepository $productRepo
     ): JsonResponse {
         if ($res = $this->denyUnlessAdmin($request, $auth)) {
             return $res;
         }
 
-        return $this->json($repo->findAll());
+        $phone = $auth->getPhoneFromRequest($request);
+
+        // TEMP admin check
+        if ($phone !== '9600989314') {
+            return $this->json(['message' => 'Forbidden'], 403);
+        }
+
+        $search = $request->query->get('search', '');
+        $page = max(1, (int) $request->query->get('page', 1));
+        $limit = max(1, (int) $request->query->get('limit', 10));
+        $offset = ($page - 1) * $limit;
+
+        // QueryBuilder for search + pagination
+        $qb = $productRepo->createQueryBuilder('p');
+
+        if ($search) {
+            $qb->andWhere('p.name LIKE :q OR p.category LIKE :q')
+                ->setParameter('q', '%' . $search . '%');
+        }
+
+        $total = (clone $qb)
+            ->select('COUNT(p.id)')
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        $products = $qb
+            ->setFirstResult($offset)
+            ->setMaxResults($limit)
+            ->orderBy('p.id', 'DESC')
+            ->getQuery()
+            ->getResult();
+
+        $data = [];
+        foreach ($products as $p) {
+            $data[] = [
+                'id' => $p->getId(),
+                'name' => $p->getName(),
+                'category' => $p->getCategory(),
+                'price' => $p->getPrice(),
+            ];
+        }
+
+        return $this->json([
+            'data' => $data,
+            'total' => (int) $total,
+            'page' => $page,
+            'limit' => $limit,
+        ]);
     }
 
     // ✅ CREATE PRODUCT

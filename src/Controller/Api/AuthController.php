@@ -9,6 +9,9 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
+use Lexik\Bundle\JWTAuthenticationBundle\Services\JWTTokenManagerInterface;
+use App\Repository\UserRepository;
+use App\Entity\User;
 
 class AuthController extends AbstractController
 {
@@ -16,6 +19,8 @@ class AuthController extends AbstractController
     public function verifyOtp(
         Request $request,
         OtpRepository $otpRepository,
+        UserRepository $userRepository,
+        JWTTokenManagerInterface $jwtManager,
         EntityManagerInterface $em
     ): JsonResponse {
         $data = json_decode($request->getContent(), true);
@@ -46,8 +51,18 @@ class AuthController extends AbstractController
         $otp->markUsed();
         $em->flush();
 
-        // 🔐 TEMP TOKEN (we’ll replace with JWT later)
-        $token = base64_encode($phone . '|' . time());
+        // 👤 Find or create User
+        $user = $userRepository->findOneBy(['phone' => $phone]);
+
+        if (!$user) {
+            $user = new User();
+            $user->setPhone($phone);
+            $em->persist($user);
+            $em->flush();
+        }
+
+        // 🔐 Generate JWT
+        $token = $jwtManager->create($user);
 
         return $this->json([
             'success' => true,
@@ -55,6 +70,7 @@ class AuthController extends AbstractController
             'phone' => $phone,
         ]);
     }
+
 
     #[Route('/api/auth/request-otp', methods: ['POST'])]
     public function requestOtp(
