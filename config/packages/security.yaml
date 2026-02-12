@@ -7,31 +7,38 @@ security:
 
   firewalls:
     dev:
-      pattern: ^/(_profiler|_wdt|assets|build)/
-      security: false
+        pattern: ^/(_profiler|_wdt|assets|build)/
+        security: false
 
-    # 🔓 PUBLIC PRODUCTS (NO JWT)
+    # 🔐 PROTECTED API FIRST
+    api:
+        pattern: ^/api
+        stateless: true
+        provider: app_user_provider
+        jwt: ~
+
+    # 🔓 PUBLIC PRODUCTS
     public_products:
-      pattern: ^/api/products
-      stateless: true
-      security: false
+        pattern: ^/api/products
+        stateless: true
+        security: false
 
     # 🔓 AUTH (OTP)
     auth:
-      pattern: ^/api/auth
-      stateless: true
-      security: false
-
-    # 🔐 PROTECTED API
-    api:
-      pattern: ^/api
-      stateless: true
-      provider: app_user_provider
-      jwt: ~
+        pattern: ^/api/auth
+        stateless: true
+        security: false
 
   access_control:
-    # ⚠️ ORDER MATTERS
-    - { path: ^/api/admin, roles: ROLE_ADMIN }
-    - { path: ^/api/products, roles: PUBLIC_ACCESS }
-    - { path: ^/api/auth, roles: PUBLIC_ACCESS }
-    - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
+      # 🔐 Admin routes first (most specific)
+      - { path: ^/api/admin, roles: ROLE_ADMIN }
+
+      # 🔓 Auth routes
+      - { path: ^/api/auth, roles: PUBLIC_ACCESS }
+
+      # 🔓 Public product routes (if needed)
+      - { path: ^/api/products$, roles: PUBLIC_ACCESS }
+
+      # 🔐 Everything else under /api requires login
+      - { path: ^/api, roles: IS_AUTHENTICATED }
+

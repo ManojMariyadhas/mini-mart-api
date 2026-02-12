@@ -4,58 +4,28 @@ namespace App\Controller\Api;
 
 use App\Entity\Product;
 use App\Repository\ProductRepository;
-use App\Security\TokenAuthenticator;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[Route('/api/admin/products')]
+#[IsGranted('ROLE_ADMIN')]
 class AdminProductController extends AbstractController
 {
-    private function denyUnlessAdmin(
-        Request $request,
-        TokenAuthenticator $auth
-    ): ?JsonResponse {
-        $phone = $auth->getPhoneFromRequest($request);
-
-        if (!$phone) {
-            return $auth->unauthorized();
-        }
-
-        // ✅ ADMIN PHONE CHECK
-        if ($phone !== '9600989314') {
-            return $this->json(['message' => 'Forbidden'], 403);
-        }
-
-        return null;
-    }
-
-    // ✅ GET ALL PRODUCTS
     #[Route('', methods: ['GET'])]
     public function index(
         Request $request,
-        TokenAuthenticator $auth,
         ProductRepository $productRepo
     ): JsonResponse {
-        if ($res = $this->denyUnlessAdmin($request, $auth)) {
-            return $res;
-        }
-
-        $phone = $auth->getPhoneFromRequest($request);
-
-        // TEMP admin check
-        if ($phone !== '9600989314') {
-            return $this->json(['message' => 'Forbidden'], 403);
-        }
 
         $search = $request->query->get('search', '');
         $page = max(1, (int) $request->query->get('page', 1));
         $limit = max(1, (int) $request->query->get('limit', 10));
         $offset = ($page - 1) * $limit;
 
-        // QueryBuilder for search + pagination
         $qb = $productRepo->createQueryBuilder('p');
 
         if ($search) {
@@ -75,15 +45,12 @@ class AdminProductController extends AbstractController
             ->getQuery()
             ->getResult();
 
-        $data = [];
-        foreach ($products as $p) {
-            $data[] = [
-                'id' => $p->getId(),
-                'name' => $p->getName(),
-                'category' => $p->getCategory(),
-                'price' => $p->getPrice(),
-            ];
-        }
+        $data = array_map(fn($p) => [
+            'id' => $p->getId(),
+            'name' => $p->getName(),
+            'category' => $p->getCategory(),
+            'price' => $p->getPrice(),
+        ], $products);
 
         return $this->json([
             'data' => $data,
@@ -93,16 +60,11 @@ class AdminProductController extends AbstractController
         ]);
     }
 
-    // ✅ CREATE PRODUCT
     #[Route('', methods: ['POST'])]
     public function create(
         Request $request,
-        TokenAuthenticator $auth,
         EntityManagerInterface $em
     ): JsonResponse {
-        if ($res = $this->denyUnlessAdmin($request, $auth)) {
-            return $res;
-        }
 
         $data = json_decode($request->getContent(), true);
 
@@ -126,18 +88,13 @@ class AdminProductController extends AbstractController
         return $this->json($product, 201);
     }
 
-    // ✅ UPDATE PRODUCT
     #[Route('/{id}', methods: ['PUT'])]
     public function update(
         int $id,
         Request $request,
-        TokenAuthenticator $auth,
         ProductRepository $repo,
         EntityManagerInterface $em
     ): JsonResponse {
-        if ($res = $this->denyUnlessAdmin($request, $auth)) {
-            return $res;
-        }
 
         $product = $repo->find($id);
         if (!$product) {
@@ -161,18 +118,12 @@ class AdminProductController extends AbstractController
         return $this->json($product);
     }
 
-    // ✅ DELETE PRODUCT
     #[Route('/{id}', methods: ['DELETE'])]
     public function delete(
         int $id,
-        Request $request,
-        TokenAuthenticator $auth,
         ProductRepository $repo,
         EntityManagerInterface $em
     ): JsonResponse {
-        if ($res = $this->denyUnlessAdmin($request, $auth)) {
-            return $res;
-        }
 
         $product = $repo->find($id);
         if (!$product) {
