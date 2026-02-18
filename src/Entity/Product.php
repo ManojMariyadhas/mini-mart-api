@@ -8,6 +8,8 @@ use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: ProductRepository::class)]
+#[ORM\Index(name: "idx_product_name", columns: ["name"])]
+#[ORM\Index(name: "idx_product_category", columns: ["category"])]
 class Product
 {
     #[ORM\Id]

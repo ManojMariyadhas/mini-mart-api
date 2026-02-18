@@ -34,6 +34,7 @@ security:
       - { path: ^/api/admin, roles: ROLE_ADMIN }
 
       # 🔓 Auth routes
+      - { path: ^/api/products/suggestions, roles: PUBLIC_ACCESS }
       - { path: ^/api/auth, roles: PUBLIC_ACCESS }
 
       # 🔓 Public product routes (if needed)
