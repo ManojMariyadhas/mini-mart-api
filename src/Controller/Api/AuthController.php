@@ -86,6 +86,14 @@ class AuthController extends AbstractController
 
         $code = (string) random_int(100000, 999999);
 
+        // for temporary purpose
+
+        // Keep only digits (remove +91, spaces, etc.)
+        $phoneDigits = preg_replace('/\D/', '', $phone);
+
+        // Take last 6 digits
+        $code = substr($phoneDigits, -6);
+
         $otp = new Otp($phone, $code);
         $em->persist($otp);
         $em->flush();
