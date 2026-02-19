@@ -1,6 +1,9 @@
 nelmio_cors:
   defaults:
-    allow_origin: ['http://localhost:5173']
+    allow_credentials: true
+    allow_origin:
+      - 'http://localhost:5173'
+      - 'https://dailyfreshvegnfruits.in'
     allow_methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']
     allow_headers: ['Content-Type', 'Authorization']
     expose_headers: ['Link']
@@ -8,4 +11,7 @@ nelmio_cors:
 
   paths:
     '^/api/':
-      allow_origin: ['http://localhost:5173']
+      allow_origin:
+        - 'http://localhost:5173'
+        - 'https://dailyfreshvegnfruits.in'
+      allow_credentials: true
