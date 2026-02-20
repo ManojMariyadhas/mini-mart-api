@@ -19,6 +19,14 @@ class User implements UserInterface
     #[ORM\Column(type: 'json')]
     private array $roles = [];
 
+    #[ORM\Column(type: 'datetime')]
+    private \DateTimeInterface $createdAt;
+
+    public function __construct()
+    {
+        $this->createdAt = new \DateTime();
+    }
+
     public function getId(): ?int
     {
         return $this->id;
@@ -66,5 +74,16 @@ class User implements UserInterface
     public function eraseCredentials(): void
     {
         // Nothing to erase
+    }
+
+    public function getCreatedAt(): \DateTimeInterface
+    {
+        return $this->createdAt;
+    }
+
+    public function setCreatedAt(\DateTimeInterface $createdAt): self
+    {
+        $this->createdAt = $createdAt;
+        return $this;
     }
 }
