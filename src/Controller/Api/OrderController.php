@@ -12,6 +12,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Bundle\SecurityBundle\Security;
 
 #[Route('/api/orders')]
 class OrderController extends AbstractController
@@ -19,22 +20,25 @@ class OrderController extends AbstractController
     #[Route('', name: 'api_create_order', methods: ['POST'])]
     public function create(
         Request $request,
-        TokenAuthenticator $auth,
+        Security $security,
         EntityManagerInterface $em,
         ProductRepository $productRepository
     ): JsonResponse {
-        // 🔐 Authenticate
-        $phone = $auth->getPhoneFromRequest($request);
-        if (!$phone) {
-            return $auth->unauthorized();
+
+        // 🔐 Get logged-in user from JWT
+        $user = $security->getUser();
+
+        if (!$user) {
+            return $this->json(['message' => 'Unauthorized'], 401);
         }
+
+        $phone = $user->getPhone();
 
         $data = json_decode($request->getContent(), true);
         if (!$data) {
             return $this->json(['message' => 'Invalid JSON'], 400);
         }
 
-        // ✅ Validate required fields (NO phone here)
         if (
             empty($data['customerName']) ||
             empty($data['address']) ||
@@ -45,25 +49,25 @@ class OrderController extends AbstractController
 
         $order = new Order();
         $order->setCustomerName($data['customerName']);
-        $order->setPhone($phone); // ✅ FROM TOKEN
+        $order->setPhone($phone);
         $order->setAddress($data['address']);
 
         $totalAmount = 0;
 
         foreach ($data['items'] as $itemData) {
-            if (
-                empty($itemData['productId']) ||
-                empty($itemData['quantity'])
-            ) {
+
+            if (empty($itemData['productId']) || empty($itemData['quantity'])) {
                 return $this->json(['message' => 'Invalid item data'], 400);
             }
 
             $product = $productRepository->find($itemData['productId']);
+
             if (!$product) {
                 return $this->json(['message' => 'Product not found'], 404);
             }
 
             $quantity = (int) $itemData['quantity'];
+
             if ($quantity <= 0) {
                 return $this->json(['message' => 'Invalid quantity'], 400);
             }
