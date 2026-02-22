@@ -3,6 +3,7 @@
 namespace App\Controller\Api;
 
 use App\Entity\Product;
+use App\Repository\CategoryRepository;
 use App\Repository\ProductRepository;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -31,7 +32,12 @@ class AdminProductController extends AbstractController
         $qb = $productRepo->createQueryBuilder('p');
 
         if ($search) {
-            $qb->andWhere('p.name LIKE :q OR p.category LIKE :q')
+
+            $qb->leftJoin('p.category', 'c');
+
+            $qb->andWhere(
+                'p.name LIKE :q OR c.name LIKE :q'
+            )
                 ->setParameter('q', '%' . $search . '%');
         }
 
@@ -50,11 +56,15 @@ class AdminProductController extends AbstractController
         $data = array_map(fn($p) => [
             'id' => $p->getId(),
             'name' => $p->getName(),
-            'category' => $p->getCategory(),
+
+            'category' => [
+                'id' => $p->getCategory()->getId(),
+                'name' => $p->getCategory()->getName()
+            ],
+
             'price' => $p->getPrice(),
             'image' => $p->getImage(),
         ], $products);
-
         return $this->json([
             'data' => $data,
             'total' => (int) $total,
@@ -66,15 +76,22 @@ class AdminProductController extends AbstractController
     #[Route('', methods: ['POST'])]
     public function create(
         Request $request,
-        EntityManagerInterface $em
+        EntityManagerInterface $em,
+        CategoryRepository $categoryRepo
     ): JsonResponse {
 
         $name = $request->request->get('name');
-        $category = $request->request->get('category');
+        $categoryId = $request->request->get('categoryId');
         $price = $request->request->get('price');
 
-        if (!$name || !$category || !$price) {
+        if (!$name || !$categoryId || !$price) {
             return $this->json(['message' => 'Missing fields'], 400);
+        }
+
+        $category = $categoryRepo->find($categoryId);
+
+        if (!$category) {
+            return $this->json(['message' => 'Invalid category'], 400);
         }
 
         $product = new Product();
@@ -84,14 +101,16 @@ class AdminProductController extends AbstractController
         $product->setIsActive(true);
 
 
-        // Upload Image
+        /* Upload Image */
+
         $imageFile = $request->files->get('image');
 
         if ($imageFile) {
 
             $fileName = uniqid() . '.webp';
 
-            $uploadPath = $this->getParameter('kernel.project_dir')
+            $uploadPath =
+                $this->getParameter('kernel.project_dir')
                 . '/public/uploads/products/';
 
             $manager = new ImageManager(new Driver());
@@ -100,16 +119,30 @@ class AdminProductController extends AbstractController
 
             $image->scale(width: 800);
 
-            $image->toWebp(80)->save($uploadPath . $fileName);
+            $image->toWebp(80)
+                ->save($uploadPath . $fileName);
 
-            $product->setImage('/uploads/products/' . $fileName);
+            $product->setImage(
+                '/uploads/products/' . $fileName
+            );
         }
-
 
         $em->persist($product);
         $em->flush();
 
-        return $this->json($product, 201);
+
+        return $this->json([
+            'id' => $product->getId(),
+            'name' => $product->getName(),
+            'price' => $product->getPrice(),
+            'image' => $product->getImage(),
+
+            'category' => [
+                'id' => $category->getId(),
+                'name' => $category->getName()
+            ]
+
+        ], 201);
     }
 
     #[Route('/{id}', methods: ['PUT'])]
@@ -117,6 +150,7 @@ class AdminProductController extends AbstractController
         int $id,
         Request $request,
         ProductRepository $repo,
+        CategoryRepository $categoryRepo,
         EntityManagerInterface $em
     ): JsonResponse {
 
@@ -127,9 +161,10 @@ class AdminProductController extends AbstractController
         }
 
 
-        // Read FormData fields
+        /* Read FormData */
+
         $name = $request->request->get('name');
-        $category = $request->request->get('category');
+        $categoryId = $request->request->get('categoryId');
         $price = $request->request->get('price');
 
 
@@ -137,16 +172,28 @@ class AdminProductController extends AbstractController
             $product->setName($name);
         }
 
-        if ($category) {
+
+        /* Fix Category */
+
+        if ($categoryId) {
+
+            $category = $categoryRepo->find($categoryId);
+
+            if (!$category) {
+                return $this->json(['message' => 'Invalid category'], 400);
+            }
+
             $product->setCategory($category);
         }
+
 
         if ($price) {
             $product->setPrice((int)$price);
         }
 
 
-        // Image Upload
+        /* Image Upload */
+
         $imageFile = $request->files->get('image');
 
         if ($imageFile) {
@@ -158,13 +205,19 @@ class AdminProductController extends AbstractController
                 . '/public/uploads/products/';
 
 
-            $imageFile->move(
-                $uploadPath,
-                $fileName
+            $manager = new ImageManager(new Driver());
+
+            $image = $manager->read($imageFile);
+
+            $image->scale(width: 800);
+
+            $image->toWebp(80)
+                ->save($uploadPath . $fileName);
+
+
+            $product->setImage(
+                '/uploads/products/' . $fileName
             );
-
-
-            $product->setImage('/uploads/products/' . $fileName);
         }
 
 
@@ -172,11 +225,18 @@ class AdminProductController extends AbstractController
 
 
         return $this->json([
+
             'id' => $product->getId(),
             'name' => $product->getName(),
-            'category' => $product->getCategory(),
+
+            'category' => [
+                'id' => $product->getCategory()->getId(),
+                'name' => $product->getCategory()->getName()
+            ],
+
             'price' => $product->getPrice(),
             'image' => $product->getImage()
+
         ]);
     }
 

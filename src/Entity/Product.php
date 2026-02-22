@@ -3,9 +3,9 @@
 namespace App\Entity;
 
 use App\Repository\ProductRepository;
-use Doctrine\Common\Collections\ArrayCollection;
-use Doctrine\Common\Collections\Collection;
 use Doctrine\ORM\Mapping as ORM;
+use App\Entity\Category;
+
 
 #[ORM\Entity(repositoryClass: ProductRepository::class)]
 #[ORM\Index(name: "idx_product_name", columns: ["name"])]
@@ -20,8 +20,9 @@ class Product
     #[ORM\Column(length: 100)]
     private ?string $name = null;
 
-    #[ORM\Column(length: 50)]
-    private ?string $category = null;
+    #[ORM\ManyToOne]
+    #[ORM\JoinColumn(nullable: false)]
+    private ?Category $category = null;
 
     #[ORM\Column]
     private ?int $price = null;
@@ -49,15 +50,14 @@ class Product
         return $this;
     }
 
-    public function getCategory(): ?string
+    public function getCategory(): ?Category
     {
         return $this->category;
     }
 
-    public function setCategory(string $category): static
+    public function setCategory(?Category $category): static
     {
         $this->category = $category;
-
         return $this;
     }
 

@@ -126,6 +126,7 @@ class OrderController extends AbstractController
                     'product' => $item->getProduct()->getName(),
                     'quantity' => $item->getQuantity(),
                     'price' => $item->getPrice(),
+                    'image' => $item->getProduct()->getImage(),
                 ];
             }
 

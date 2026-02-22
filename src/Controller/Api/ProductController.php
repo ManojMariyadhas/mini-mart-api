@@ -27,7 +27,10 @@ class ProductController extends AbstractController
             $data[] = [
                 'id' => $product->getId(),
                 'name' => $product->getName(),
-                'category' => $product->getCategory(),
+                'category' => [
+                    'id' => $product->getCategory()->getId(),
+                    'name' => $product->getCategory()->getName()
+                ],
                 'price' => $product->getPrice(),
                 'image' => $product->getImage(),
             ];
