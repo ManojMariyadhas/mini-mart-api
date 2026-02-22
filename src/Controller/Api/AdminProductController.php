@@ -10,6 +10,8 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Intervention\Image\ImageManager;
+use Intervention\Image\Drivers\Gd\Driver;
 
 #[Route('/api/admin/products')]
 #[IsGranted('ROLE_ADMIN')]
@@ -50,6 +52,7 @@ class AdminProductController extends AbstractController
             'name' => $p->getName(),
             'category' => $p->getCategory(),
             'price' => $p->getPrice(),
+            'image' => $p->getImage(),
         ], $products);
 
         return $this->json([
@@ -66,21 +69,42 @@ class AdminProductController extends AbstractController
         EntityManagerInterface $em
     ): JsonResponse {
 
-        $data = json_decode($request->getContent(), true);
+        $name = $request->request->get('name');
+        $category = $request->request->get('category');
+        $price = $request->request->get('price');
 
-        if (
-            empty($data['name']) ||
-            empty($data['category']) ||
-            empty($data['price'])
-        ) {
+        if (!$name || !$category || !$price) {
             return $this->json(['message' => 'Missing fields'], 400);
         }
 
         $product = new Product();
-        $product->setName($data['name']);
-        $product->setCategory($data['category']);
-        $product->setPrice((int) $data['price']);
+        $product->setName($name);
+        $product->setCategory($category);
+        $product->setPrice((int)$price);
         $product->setIsActive(true);
+
+
+        // Upload Image
+        $imageFile = $request->files->get('image');
+
+        if ($imageFile) {
+
+            $fileName = uniqid() . '.webp';
+
+            $uploadPath = $this->getParameter('kernel.project_dir')
+                . '/public/uploads/products/';
+
+            $manager = new ImageManager(new Driver());
+
+            $image = $manager->read($imageFile);
+
+            $image->scale(width: 800);
+
+            $image->toWebp(80)->save($uploadPath . $fileName);
+
+            $product->setImage('/uploads/products/' . $fileName);
+        }
+
 
         $em->persist($product);
         $em->flush();
@@ -97,25 +121,63 @@ class AdminProductController extends AbstractController
     ): JsonResponse {
 
         $product = $repo->find($id);
+
         if (!$product) {
             return $this->json(['message' => 'Product not found'], 404);
         }
 
-        $data = json_decode($request->getContent(), true);
 
-        if (isset($data['name'])) {
-            $product->setName($data['name']);
+        // Read FormData fields
+        $name = $request->request->get('name');
+        $category = $request->request->get('category');
+        $price = $request->request->get('price');
+
+
+        if ($name) {
+            $product->setName($name);
         }
-        if (isset($data['category'])) {
-            $product->setCategory($data['category']);
+
+        if ($category) {
+            $product->setCategory($category);
         }
-        if (isset($data['price'])) {
-            $product->setPrice((int) $data['price']);
+
+        if ($price) {
+            $product->setPrice((int)$price);
         }
+
+
+        // Image Upload
+        $imageFile = $request->files->get('image');
+
+        if ($imageFile) {
+
+            $fileName = uniqid() . '.webp';
+
+            $uploadPath =
+                $this->getParameter('kernel.project_dir')
+                . '/public/uploads/products/';
+
+
+            $imageFile->move(
+                $uploadPath,
+                $fileName
+            );
+
+
+            $product->setImage('/uploads/products/' . $fileName);
+        }
+
 
         $em->flush();
 
-        return $this->json($product);
+
+        return $this->json([
+            'id' => $product->getId(),
+            'name' => $product->getName(),
+            'category' => $product->getCategory(),
+            'price' => $product->getPrice(),
+            'image' => $product->getImage()
+        ]);
     }
 
     #[Route('/{id}', methods: ['DELETE'])]

@@ -96,16 +96,19 @@ class OrderController extends AbstractController
         ], 201);
     }
 
-    #[Route('', name: 'api_get_orders', methods: ['GET'])]
+    #[Route('/go', name: 'api_get_orders', methods: ['GET'])]
     public function index(
-        Request $request,
-        TokenAuthenticator $auth,
+        Security $security,
         OrderRepository $orderRepository
     ): JsonResponse {
-        $phone = $auth->getPhoneFromRequest($request);
-        if (!$phone) {
-            return $auth->unauthorized();
+
+        $user = $security->getUser();
+
+        if (!$user) {
+            return $this->json(['message' => 'Unauthorized'], 401);
         }
+
+        $phone = $user->getPhone();
 
         $orders = $orderRepository->findBy(
             ['phone' => $phone],
@@ -115,6 +118,7 @@ class OrderController extends AbstractController
         $response = [];
 
         foreach ($orders as $order) {
+
             $items = [];
 
             foreach ($order->getItems() as $item) {

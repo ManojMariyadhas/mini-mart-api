@@ -42,10 +42,10 @@ class AuthController extends AbstractController
         if (!$otp) {
             return $this->json(['message' => 'Invalid OTP'], 400);
         }
-
-        if ($otp->isExpired()) {
-            return $this->json(['message' => 'OTP expired'], 400);
-        }
+        //Temporarly commmented
+        // if ($otp->isExpired()) {
+        //     return $this->json(['message' => 'OTP expired'], 400);
+        // }
 
         // ✅ Mark OTP as used
         $otp->markUsed();
